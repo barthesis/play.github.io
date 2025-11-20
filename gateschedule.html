@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HHO - Airport Gate Optimization</title>
+    <style>
+        :root {
+            --bg-dark: #0f1115;
+            --bg-panel: #1a1c23;
+            --neon-green: #4ade80;
+            --neon-dim: rgba(74, 222, 128, 0.2);
+            --text-main: #ffffff;
+            --text-muted: #9ca3af;
+            --font-sans: 'Inter', system-ui, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Layout --- */
+        .container {
+            display: grid;
+            grid-template-columns: 40% 60%;
+            height: 85vh;
+            padding: 3rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* --- Typography & Left Content --- */
+        .content-left {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding-right: 2rem;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            background: linear-gradient(to right, #fff, #ccc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtext {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            line-height: 1.6;
+            max-width: 500px;
+            margin-bottom: 3rem;
+        }
+
+        /* HHO Logo Badge */
+        .hho-badge {
+            width: 120px;
+            height: 120px;
+            border: 2px solid var(--neon-green);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px var(--neon-dim);
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        
+        .hho-text {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--neon-green);
+            letter-spacing: -2px;
+        }
+        
+        .hho-sub {
+            font-size: 0.5rem;
+            color: var(--neon-green);
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+
+        /* --- Top Right Menu --- */
+        .menu-list {
+            position: absolute;
+            top: 3rem;
+            right: 3rem;
+            text-align: right;
+            list-style: none;
+        }
+
+        .menu-list li {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+        .menu-list li:hover { color: var(--neon-green); }
+
+        /* --- The 3D Airport Visual (CSS Isometric) --- */
+        .visual-right {
+            position: relative;
+            perspective: 1000px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .isometric-scene {
+            width: 100%;
+            height: 500px;
+            transform: rotateX(60deg) rotateZ(-45deg) scale(0.8);
+            transform-style: preserve-3d;
+            position: relative;
+        }
+
+        /* The Terminal Building */
+        .terminal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200px;
+            height: 600px;
+            background: linear-gradient(135deg, #2d3038, #1a1c23);
+            border-right: 4px solid #3f424e;
+            border-top: 1px solid #555;
+            box-shadow: 20px 20px 50px rgba(0,0,0,0.5);
+            transform: translateZ(20px);
+        }
+
+        /* The Tarmac/Ground */
+        .tarmac {
+            position: absolute;
+            top: 0;
+            left: 200px;
+            width: 600px;
+            height: 600px;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* Gate Markings */
+        .gate-line {
+            position: absolute;
+            height: 2px;
+            width: 100px;
+            background-color: rgba(255,255,255,0.2);
+            left: 0;
+        }
+        .g1 { top: 100px; }
+        .g2 { top: 300px; }
+        .g3 { top: 500px; }
+
+        /* --- Animated Elements --- */
+
+        /* Green Connector Lines (SVG Overlay style) */
+        .data-path {
+            position: absolute;
+            background: var(--neon-green);
+            box-shadow: 0 0 8px var(--neon-green);
+            opacity: 0.8;
+            transform: translateZ(1px); /* Lift off ground slightly */
+        }
+        
+        /* Path Animations */
+        .path-h { height: 2px; width: 0; animation: growLine 2s infinite alternate ease-in-out; }
+        .path-v { width: 2px; height: 0; animation: growLineV 2s infinite alternate ease-in-out 1s; }
+
+        .dp1 { top: 100px; left: 0; width: 150px; height: 2px; animation: none; } /* Static main line */
+        .dp2 { top: 100px; left: 150px; height: 200px; width: 2px; } /* Vertical connector */
+        .dp3 { top: 300px; left: 100px; width: 50px; height: 2px; } /* To Plane 2 */
+
+        /* Floating Icons/Callouts */
+        .callout {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid var(--neon-green);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--neon-green);
+            transform: rotateZ(45deg) rotateX(-60deg) translateZ(50px); /* Counter-rotate to face user */
+            box-shadow: 0 0 15px var(--neon-green);
+            animation: floatPulse 3s ease-in-out infinite;
+        }
+        
+        .c1 { top: 85px; left: 135px; animation-delay: 0s; }
+        .c2 { top: 285px; left: 180px; animation-delay: 1s; }
+        .c3 { top: 485px; left: 80px; animation-delay: 0.5s; }
+
+        /* --- The Planes --- */
+        .plane {
+            position: absolute;
+            width: 60px;
+            height: 70px;
+            fill: #5a5e6b;
+            filter: drop-shadow(5px 5px 5px rgba(0,0,0,0.5));
+            transition: all 1s ease;
+        }
+
+        .plane svg {
+            width: 100%;
+            height: 100%;
+            fill: #717685;
+            stroke: #333;
+            stroke-width: 1;
+        }
+
+        /* Plane 1: Pulling In */
+        .plane-1 {
+            top: 265px;
+            left: 400px; /* Start far out */
+            transform: rotate(-90deg);
+            animation: taxiIn 8s infinite ease-in-out;
+        }
+
+        /* Plane 2: Pushing Back */
+        .plane-2 {
+            top: 65px;
+            left: 50px; /* At Gate */
+            transform: rotate(-90deg);
+            animation: pushBack 10s infinite ease-in-out;
+        }
+        
+        /* Plane 3: Parked */
+        .plane-3 {
+            top: 465px;
+            left: 50px;
+            transform: rotate(-90deg);
+        }
+
+        /* --- Footer / Steps --- */
+        .footer-steps {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 15vh;
+            background: var(--bg-dark);
+            border-top: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 3rem;
+            z-index: 10;
+        }
+
+        .step-container {
+            display: flex;
+            gap: 3rem;
+        }
+
+        .step {
+            opacity: 0.7;
+            transition: opacity 0.3s;
+            cursor: pointer;
+        }
+        .step:hover { opacity: 1; }
+
+        .step-num {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 0.3rem;
+        }
+        .step-title {
+            color: var(--text-main);
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+        .step-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+        }
+
+        /* CTA Button */
+        .cta-btn {
+            background-color: #4ade80; /* Fallback */
+            background: linear-gradient(135deg, #4ade80, #22c55e);
+            color: #000;
+            font-weight: 700;
+            padding: 1rem 3rem;
+            font-size: 1rem;
+            text-transform: uppercase;
+            border: none;
+            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .cta-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(74, 222, 128, 0.3);
+        }
+
+        .brand-footer {
+            position: absolute;
+            bottom: 2rem;
+            right: 3rem;
+            text-align: right;
+        }
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        .brand-tag {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* --- ANIMATIONS --- */
+
+        @keyframes floatPulse {
+            0%, 100% { transform: rotateZ(45deg) rotateX(-60deg) translateZ(50px) translateY(0); box-shadow: 0 0 15px var(--neon-green); }
+            50% { transform: rotateZ(45deg) rotateX(-60deg) translateZ(50px) translateY(-10px); box-shadow: 0 0 25px var(--neon-green); }
+        }
+
+        /* Plane 1: Arrive at Gate 2 */
+        @keyframes taxiIn {
+            0% { left: 600px; top: 265px; transform: rotate(-90deg); } /* En route */
+            30% { left: 200px; top: 265px; transform: rotate(-90deg); } /* Turn approach */
+            40% { left: 150px; top: 265px; transform: rotate(-90deg); }
+            50% { left: 50px; top: 265px; transform: rotate(-90deg); } /* Parked */
+            80% { left: 50px; top: 265px; transform: rotate(-90deg); } /* Wait */
+            100% { left: 50px; top: 265px; transform: rotate(-90deg); } /* End loop */
+        }
+
+        /* Plane 2: Leave Gate 1 */
+        @keyframes pushBack {
+            0% { left: 50px; top: 65px; transform: rotate(-90deg); } /* Parked */
+            20% { left: 150px; top: 65px; transform: rotate(-90deg); } /* Pushback */
+            25% { left: 180px; top: 65px; transform: rotate(-45deg); } /* Turn */
+            30% { left: 200px; top: 100px; transform: rotate(0deg); } /* Taxi away */
+            100% { left: 200px; top: 800px; transform: rotate(0deg); } /* Gone */
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Navigation List -->
+        <ul class="menu-list">
+            <li>Airport Ops</li>
+            <li>Logistics</li>
+            <li>Passenger Flow</li>
+            <li>Ground Support</li>
+        </ul>
+
+        <!-- Left Column: Text -->
+        <div class="content-left">
+            <!-- Logo Graphic -->
+            <div class="hho-badge">
+                <div class="hho-text">HHO</div>
+                <div class="hho-sub">Heterogeneous<br>Hybrid Optimization</div>
+            </div>
+
+            <h1>Optimize Airport<br>Gate Scheduling.</h1>
+            <p class="subtext">
+                AI-powered Heterogeneous Hybrid Optimization for maximum efficiency, bridging planning and execution.
+            </p>
+        </div>
+
+        <!-- Right Column: 3D Visual -->
+        <div class="visual-right">
+            <div class="isometric-scene">
+                
+                <!-- The Building -->
+                <div class="terminal"></div>
+
+                <!-- The Tarmac -->
+                <div class="tarmac">
+                    <!-- Markings -->
+                    <div class="gate-line g1"></div>
+                    <div class="gate-line g2"></div>
+                    <div class="gate-line g3"></div>
+
+                    <!-- Data Paths (Neon Lines) -->
+                    <div class="data-path dp1"></div>
+                    <div class="data-path dp2"></div>
+
+                    <!-- Planes (SVG Icons) -->
+                    <!-- Plane 1: Arriving -->
+                    <div class="plane plane-1">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M21,16V14L13,9V3.5A1.5,1.5 0 0,0 11.5,2A1.5,1.5 0 0,0 10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5L21,16Z" />
+                        </svg>
+                    </div>
+
+                    <!-- Plane 2: Departing -->
+                    <div class="plane plane-2">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M21,16V14L13,9V3.5A1.5,1.5 0 0,0 11.5,2A1.5,1.5 0 0,0 10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5L21,16Z" />
+                        </svg>
+                    </div>
+
+                    <!-- Plane 3: Parked -->
+                    <div class="plane plane-3">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M21,16V14L13,9V3.5A1.5,1.5 0 0,0 11.5,2A1.5,1.5 0 0,0 10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5L21,16Z" />
+                        </svg>
+                    </div>
+
+                    <!-- Floating Callouts (Icons) -->
+                    <div class="callout c1">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+                    </div>
+                    <div class="callout c2">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                    </div>
+                    <div class="callout c3">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Steps -->
+    <div class="footer-steps">
+        <div class="step-container">
+            <div class="step">
+                <div class="step-num">01</div>
+                <div class="step-title">Creation</div>
+                <div class="step-desc">Model gate usage with advanced AI.</div>
+            </div>
+            <div class="step">
+                <div class="step-num">02</div>
+                <div class="step-title">Integration</div>
+                <div class="step-desc">Connect real-time flight data.</div>
+            </div>
+            <div class="step">
+                <div class="step-num">03</div>
+                <div class="step-title">Production</div>
+                <div class="step-desc">Dynamic, live gate assignments.</div>
+            </div>
+        </div>
+
+        <button class="cta-btn">Get Started</button>
+
+        <div class="brand-footer">
+            <div class="brand-logo">
+                <svg width="20" height="20" viewBox="0 0 24 24" stroke="white" stroke-width="2" fill="none">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+                STRANGEWORKS
+            </div>
+            <div class="brand-tag">Heterogeneous compute made easy</div>
+        </div>
+    </div>
+
+</body>
+</html>
