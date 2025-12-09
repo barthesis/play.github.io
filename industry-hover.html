@@ -5,56 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Logistics Rollover Prototype</title>
     <style>
+        /* --- CSS VARIABLES --- */
         :root {
             --color-text: #ffffff;
-            --color-accent: #4ade80; /* Green color from the screenshot */
-            --bg-overlay: linear-gradient(to bottom, rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.9));
+            --color-accent: #4ade80; /* Bright Green */
+            --bg-dark: #0f172a;
             --transition-speed: 0.6s;
-            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1); /* Snappy yet smooth ease */
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         body, html {
             margin: 0;
             padding: 0;
+            width: 100%;
             height: 100%;
+            background-color: var(--bg-dark);
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #0f172a; /* Dark background */
-            overflow: hidden;
+            overflow: hidden; /* Prevent scrollbars during expansion */
         }
 
-        /* Main Container */
+        /* --- MAIN LAYOUT --- */
         .accordion-container {
             display: flex;
-            height: 100vh;
             width: 100%;
-            overflow: hidden;
-            position: relative;
+            height: 100vh;
+            min-height: 600px; /* Safety: prevents collapse in small viewers */
         }
 
-        /* Individual Accordion Items */
         .accordion-item {
             position: relative;
-            /* By default, all items share space equally */
-            flex: 1;
+            flex: 1; /* All items start equal width */
             height: 100%;
             overflow: hidden;
             cursor: pointer;
-            /* The magic happens here: smooth transition for flex-grow */
             transition: flex-grow var(--transition-speed) var(--ease-out-expo);
             border-right: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        .accordion-item:last-child {
-            border-right: none;
+            
+            /* Fallback background color in case image dies */
+            background-color: #1e293b; 
         }
 
-        /* The Hover State - CSS handles the expansion */
+        /* Hover Interaction: The hovered item grows, others shrink automatically */
         .accordion-item:hover {
-            /* On hover, this item takes up much more space (e.g., 5 times the others) */
-            flex-grow: 5; 
+            flex-grow: 5; /* Expands to take 5x the space of others */
         }
 
-        /* Background Image Handling */
+        /* --- BACKGROUND IMAGES --- */
         .item-bg {
             position: absolute;
             top: 0;
@@ -63,19 +59,215 @@
             height: 100%;
             background-size: cover;
             background-position: center;
-            /* Add a dark overlay so text is readable */
-            filter: brightness(0.7) grayscale(0.3);
-            transition: transform var(--transition-speed) var(--ease-out-expo), filter var(--transition-speed) ease;
+            filter: brightness(0.5) grayscale(0.5); /* Dimmed by default */
+            transition: transform var(--transition-speed) var(--ease-out-expo), 
+                        filter var(--transition-speed) ease;
+            z-index: 1;
         }
 
-        /* Slight zoom effect on background image on hover */
         .accordion-item:hover .item-bg {
-            transform: scale(1.05);
-            filter: brightness(1) grayscale(0);
+            transform: scale(1.05); /* Gentle zoom */
+            filter: brightness(0.9) grayscale(0); /* Brighten up */
         }
 
-        /* Content Overlay */
+        /* --- CONTENT OVERLAY --- */
         .item-content {
             position: absolute;
             top: 0;
-            left: 0
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 2rem;
+            box-sizing: border-box;
+            z-index: 2; /* Ensure text is above image */
+            display: flex;
+            flex-direction: column;
+            white-space: nowrap; 
+            background: linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.8));
+            pointer-events: none; /* Let mouse clicks pass through to the item */
+        }
+
+        /* --- TYPOGRAPHY & GRAPHICS --- */
+        .category-header {
+            display: flex;
+            align-items: center;
+            color: var(--color-text);
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            opacity: 0.8;
+        }
+
+        /* The striped decorative bar */
+        .striped-icon {
+            width: 30px;
+            height: 6px;
+            background-image: repeating-linear-gradient(
+                -45deg,
+                rgba(255, 255, 255, 0.5),
+                rgba(255, 255, 255, 0.5) 2px,
+                transparent 2px,
+                transparent 6px
+            );
+            margin-right: 12px;
+            transition: width 0.4s ease;
+        }
+
+        /* Make stripe green and longer on hover */
+        .accordion-item:hover .striped-icon {
+             width: 50px;
+             background-image: repeating-linear-gradient(
+                -45deg,
+                var(--color-accent),
+                var(--color-accent) 2px,
+                transparent 2px,
+                transparent 6px
+            );
+        }
+
+        .main-title {
+            color: var(--color-text);
+            font-size: 4rem;
+            font-weight: 300;
+            margin: 0;
+            opacity: 0; /* Hidden by default */
+            transform: translateY(20px); /* Pushed down */
+            transition: opacity 0.4s ease 0.1s, transform 0.4s ease 0.1s;
+        }
+
+        /* Show title on hover */
+        .accordion-item:hover .main-title {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* --- CUSTOM CURSOR --- */
+        .follow-cursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none; /* Important: mouse goes through this */
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            opacity: 0; /* Hidden initially */
+            transform: scale(0.8);
+            transition: opacity 0.2s, transform 0.2s;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .follow-cursor.active {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .pin-icon {
+            width: 16px;
+            height: 16px;
+            stroke: var(--color-accent);
+            stroke-width: 2;
+            fill: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="follow-cursor" id="customCursor">
+        <svg class="pin-icon" viewBox="0 0 24 24">
+            <path d="M16 3l-4 4-4-4"></path>
+            <path d="M12 7v10"></path>
+            <path d="M8 21h8"></path>
+        </svg>
+        <span id="cursorText">Click to pin</span>
+    </div>
+
+    <div class="accordion-container" id="accordion">
+
+        <div class="accordion-item">
+            <div class="item-bg" style="background-image: url('https://picsum.photos/id/20/800/1200'); background-color: #2c3e50;"></div>
+            <div class="item-content">
+                <div class="category-header"><div class="striped-icon"></div>Finance</div>
+                <h1 class="main-title">Finance</h1>
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <div class="item-bg" style="background-image: url('https://picsum.photos/id/24/800/1200'); background-color: #27ae60;"></div>
+            <div class="item-content">
+                <div class="category-header"><div class="striped-icon"></div>Pharma</div>
+                <h1 class="main-title">Pharma</h1>
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <div class="item-bg" style="background-image: url('https://picsum.photos/id/48/800/1200'); background-color: #e67e22;"></div>
+            <div class="item-content">
+                <div class="category-header"><div class="striped-icon"></div>Energy</div>
+                <h1 class="main-title">Energy</h1>
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <div class="item-bg" style="background-image: url('https://picsum.photos/id/195/800/1200'); background-color: #2980b9;"></div>
+            <div class="item-content">
+                <div class="category-header"><div class="striped-icon"></div>Logistics</div>
+                <h1 class="main-title">Logistics</h1>
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <div class="item-bg" style="background-image: url('https://picsum.photos/id/250/800/1200'); background-color: #8e44ad;"></div>
+            <div class="item-content">
+                <div class="category-header"><div class="striped-icon"></div>Manufacturing</div>
+                <h1 class="main-title">Manufacturing</h1>
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <div class="item-bg" style="background-image: url('https://picsum.photos/id/260/800/1200'); background-color: #34495e;"></div>
+            <div class="item-content">
+                <div class="category-header"><div class="striped-icon"></div>Defense</div>
+                <h1 class="main-title">Defense</h1>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CURSOR LOGIC ---
+        const cursor = document.getElementById('customCursor');
+        const cursorText = document.getElementById('cursorText');
+        const items = document.querySelectorAll('.accordion-item');
+
+        // Move cursor with mouse
+        document.addEventListener('mousemove', (e) => {
+            // Offset slightly so it doesn't cover the exact pixel being clicked
+            cursor.style.left = (e.clientX + 15) + 'px';
+            cursor.style.top = (e.clientY + 15) + 'px';
+        });
+
+        // Add hover effects
+        items.forEach(item => {
+            item.addEventListener('mouseenter', (e) => {
+                cursor.classList.add('active');
+                
+                // Get the text from the header inside this item
+                const title = item.querySelector('.main-title').innerText;
+                cursorText.innerText = `Click to pin ${title}`;
+            });
+
+            item.addEventListener('mouseleave', () => {
+                cursor.classList.remove('active');
+            });
+        });
+    </script>
+</body>
+</html>
