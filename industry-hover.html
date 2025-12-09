@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logistics Rollover Prototype</title>
+    <style>
+        :root {
+            --color-text: #ffffff;
+            --color-accent: #4ade80; /* Green color from the screenshot */
+            --bg-overlay: linear-gradient(to bottom, rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.9));
+            --transition-speed: 0.6s;
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1); /* Snappy yet smooth ease */
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0f172a; /* Dark background */
+            overflow: hidden;
+        }
+
+        /* Main Container */
+        .accordion-container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Individual Accordion Items */
+        .accordion-item {
+            position: relative;
+            /* By default, all items share space equally */
+            flex: 1;
+            height: 100%;
+            overflow: hidden;
+            cursor: pointer;
+            /* The magic happens here: smooth transition for flex-grow */
+            transition: flex-grow var(--transition-speed) var(--ease-out-expo);
+            border-right: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .accordion-item:last-child {
+            border-right: none;
+        }
+
+        /* The Hover State - CSS handles the expansion */
+        .accordion-item:hover {
+            /* On hover, this item takes up much more space (e.g., 5 times the others) */
+            flex-grow: 5; 
+        }
+
+        /* Background Image Handling */
+        .item-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            /* Add a dark overlay so text is readable */
+            filter: brightness(0.7) grayscale(0.3);
+            transition: transform var(--transition-speed) var(--ease-out-expo), filter var(--transition-speed) ease;
+        }
+
+        /* Slight zoom effect on background image on hover */
+        .accordion-item:hover .item-bg {
+            transform: scale(1.05);
+            filter: brightness(1) grayscale(0);
+        }
+
+        /* Content Overlay */
+        .item-content {
+            position: absolute;
+            top: 0;
+            left: 0
