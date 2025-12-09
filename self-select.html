@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consistent Behavior Prototype</title>
+    
+    <script src="https://unpkg.com/@popperjs/core@2"></script>
+    <script src="https://unpkg.com/tippy.js@6"></script>
+    
+    <style>
+        /* --- 1. Variables & Geometry Sync --- */
+        :root {
+            --bg-color: #D8EAEF;
+            --text-color: #333F48;
+            --highlight-bg: #C8E0DC;
+            --highlight-border: #98C1B8;
+            --menu-bg: #AFCAD3;
+            --menu-stripe: #A3CD5F;
+            
+            /* GEOMETRY: These must be exact for the math to work */
+            --font-size: 48px;
+            --line-height: 1.2;
+            --padding-y: 2px;
+            --padding-x: 10px;
+            --border-width: 2px;
+            
+            /* Calculated Height = (Font * LineHeight) + (Padding * 2) + (Border * 2) */
+            /* We enforce this height in CSS to ensure JS math is pixel-perfect */
+            --item-height: 66px; 
+            
+            --stripe-height: 12px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .main-container {
+            position: relative;
+            font-size: var(--font-size);
+            line-height: 1.6;
+            max-width: 900px;
+            padding-left: 60px;
+        }
+
+        /* Decorative Stripe */
+        .main-container::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 10px;
+            bottom: 10px;
+            width: 30px;
+            background: repeating-linear-gradient(
+                -45deg,
+                #7A8B99,
+                #7A8B99 2px,
+                transparent 2px,
+                transparent 6px
+            );
+            opacity: 0.6;
+        }
+
+        .text-line {
+            position: relative;
+            /* Smooth transitions for the blur effect */
+            transition: opacity 0.3s ease, filter 0.3s ease;
+        }
+
+        /* --- THE TRIGGER --- */
+        .interactive-spot {
+            display: inline-block;
+            background-color: var(--highlight-bg);
+            border: var(--border-width) solid var(--highlight-border);
+            padding: var(--padding-y) var(--padding-x);
+            /* Negative margin compensates for border so text flow isn't disrupted */
+            margin: calc(var(--border-width) * -1) 0;
+            cursor: pointer;
+            box-sizing: border-box;
+            
+            /* Enforce height to match menu items exactly */
+            height: var(--item-height);
+            line-height: var(--line-height);
+            vertical-align: middle; 
+        }
+
+        /* --- THE MENU --- */
+        .menu-template { display: none; }
+
+        .popover-scroll-box {
+            background-color: var(--menu-bg);
+            min-width: 400px; 
+            /* Height: Enough to show ~5 items (5 * 66 = 330) + stripe */
+            height: 350px; 
+            overflow-y: hidden; /* Hide scrollbar initially */
+            box-shadow: 0 30px 60px rgba(0,0,0,0.2);
+            position: relative;
+            text-align: left;
+        }
+        
+        /* Enable mouse wheel scrolling without the ugly bar */
+        .popover-scroll-box:hover {
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+        .popover-scroll-box::-webkit-scrollbar { display: none; }
+
+        .menu-header-stripe {
+            height: var(--stripe-height);
+            background: repeating-linear-gradient(
+                -45deg,
+                var(--menu-stripe),
+                var(--menu-stripe) 3px,
+                #CDE7A7 3px,
+                #CDE7A7 6px
+            );
+            position: sticky; 
+            top: 0;
+            z-index: 10;
+        }
+
+        /* --- THE MENU ITEMS --- */
+        .menu-option {
+            display: block;
+            font-size: var(--font-size);
+            color: var(--text-color);
+            cursor: pointer;
+            white-space: nowrap;
+            
+            /* GEOMETRY MIRRORING */
+            height: var(--item-height);
+            line-height: var(--line-height);
+            padding: var(--padding-y) var(--padding-x);
+            
+            /* Transparent border matches Trigger's colored border */
+            border: var(--border-width) solid transparent; 
+            box-sizing: border-box;
+            
+            opacity: 0.4;
+            transition: opacity 0.1s;
+        }
+
+        .menu-option:hover {
+            opacity: 0.8;
+            background-color: rgba(255,255,255,0.15);
+        }
+        
+        .menu-option.selected {
+            opacity: 1;
+            font-weight: 500;
+        }
+
+        /* --- Focus Effects --- */
+        body.blur-mode .text-line.blurred {
+            filter: blur(6px);
+            opacity: 0.2;
+        }
+        body.blur-mode .text-line.focused {
+             filter: none;
+             opacity: 1;
+             z-index: 50; 
+        }
+
+        /* Tippy Theme Overrides */
+        .tippy-box[data-theme~='custom'] {
+            background-color: transparent;
+            color: var(--text-color);
+        }
+        .tippy-box[data-theme~='custom'] .tippy-content { padding: 0; }
+        .tippy-box[data-theme~='custom'] > .tippy-arrow { display: none; }
+
+    </style>
+</head>
+<body>
+
+    <div class="main-container">
+        <div class="text-line" id="line-1">
+            I'm a <span class="interactive-spot" data-template="tpl-role">team lead</span>
+        </div>
+        <div class="text-line" id="line-2">
+            at a <span class="interactive-spot" data-template="tpl-industry">finance</span> company
+        </div>
+        <div class="text-line" id="line-3">
+            wanting to <span class="interactive-spot" data-template="tpl-goal">optimize returns</span>
+        </div>
+    </div>
+
+    <div id="tpl-role" class="menu-template">
+        <div class="popover-scroll-box">
+            <div class="menu-header-stripe"></div>
+            <div class="menu-option">c-level</div>
+            <div class="menu-option">data scientist</div>
+            <div class="menu-option">team lead</div> <div class="menu-option">researcher</div>
+            <div class="menu-option">developer</div>
+            <div class="menu-option">decision maker</div>
+            <div class="menu-option">subject matter expert</div>
+        </div>
+    </div>
+
+    <div id="tpl-industry" class="menu-template">
+        <div class="popover-scroll-box">
+            <div class="menu-header-stripe"></div>
+            <div class="menu-option">banking</div>
+            <div class="menu-option">insurance</div>
+            <div class="menu-option">finance</div> <div class="menu-option">healthcare</div>
+            <div class="menu-option">logistics</div>
+            <div class="menu-option">retail</div>
+            <div class="menu-option">manufacturing</div>
+            <div class="menu-option">technology</div>
+        </div>
+    </div>
+
+    <div id="tpl-goal" class="menu-template">
+        <div class="popover-scroll-box">
+            <div class="menu-header-stripe"></div>
+             <div class="menu-option">increase revenue</div>
+            <div class="menu-option">maximize profit</div>
+            <div class="menu-option">optimize returns</div> <div class="menu-option">reduce churn</div>
+            <div class="menu-option">cut costs</div>
+            <div class="menu-option">launch products</div>
+            <div class="menu-option">new markets</div>
+            <div class="menu-option">efficiency</div>
+        </div>
+    </div>
+
+    <script>
+        // --- MATH CONFIG ---
+        const ITEM_HEIGHT = 66; 
+        const STRIPE_HEIGHT = 12;
+        const ITEMS_ABOVE_CONTEXT = 2; // We want 2 items visible above the selection
+
+        tippy('.interactive-spot', {
+            content(reference) {
+                const id = reference.getAttribute('data-template');
+                return document.getElementById(id).innerHTML;
+            },
+            allowHTML: true,
+            interactive: true,
+            theme: 'custom',
+            trigger: 'mouseenter focus',
+            maxWidth: 'none',
+            placement: 'bottom-start',
+            animation: 'fade',
+            duration: [200, 150],
+
+            // --- THE CENTERING LOGIC ---
+            onShow(instance) {
+                // 1. BLUR BACKGROUND
+                document.body.classList.add('blur-mode');
+                const trigger = instance.reference;
+                const parentLine = trigger.closest('.text-line');
+                
+                document.querySelectorAll('.text-line').forEach(line => {
+                    line.classList.toggle('focused', line === parentLine);
+                    line.classList.toggle('blurred', line !== parentLine);
+                });
+
+                // 2. FIND SELECTED INDEX
+                const currentText = trigger.textContent.trim();
+                const templateId = trigger.getAttribute('data-template');
+                // Create a temp div to parse HTML string
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = document.getElementById(templateId).innerHTML;
+                const options = Array.from(tempDiv.querySelectorAll('.menu-option'));
+                
+                let selectedIndex = 0;
+                options.forEach((opt, index) => {
+                    if (opt.textContent.trim() === currentText) selectedIndex = index;
+                });
+
+                // 3. CALCULATE SCROLL & SHIFT
+                // We want to show X items above.
+                // If the item is index 0 or 1, we show as many as exist (0 or 1).
+                let visibleItemsAbove = ITEMS_ABOVE_CONTEXT;
+                if (selectedIndex < ITEMS_ABOVE_CONTEXT) {
+                    visibleItemsAbove = selectedIndex;
+                }
+
+                // A. How far to scroll INSIDE the box
+                // We want the item (index - 2) to be at the very top of the scroll box.
+                // If (index - 2) is negative, we scroll to 0.
+                const scrollToIndex = selectedIndex - visibleItemsAbove;
+                const scrollPixels = scrollToIndex * ITEM_HEIGHT;
+
+                // B. How far to move the WHOLE BOX UP
+                // We need to move the box up so the 'Selected Item' aligns with 'Trigger'.
+                // Distance = Stripe + (Visible Items Above * Item Height)
+                const shiftUpAmount = STRIPE_HEIGHT + (visibleItemsAbove * ITEM_HEIGHT);
+
+                // Apply Offset: [X, Y] -> [-2 corrects border offset, -shiftUpAmount moves up]
+                instance.setProps({
+                    offset: [-2, -shiftUpAmount]
+                });
+
+                // 4. APPLY DOM UPDATES (Post-Render)
+                setTimeout(() => {
+                    const menuBox = instance.popper.querySelector('.popover-scroll-box');
+                    const liveOptions = menuBox.querySelectorAll('.menu-option');
+                    
+                    // Highlight
+                    liveOptions.forEach((opt, i) => {
+                        if (i === selectedIndex) {
+                            opt.classList.add('selected');
+                        } else {
+                            opt.classList.remove('selected');
+                        }
+                    });
+
+                    // Scroll
+                    menuBox.scrollTop = scrollPixels;
+
+                }, 0);
+            },
+
+            onHide(instance) {
+                document.body.classList.remove('blur-mode');
+                document.querySelectorAll('.text-line').forEach(l => l.classList.remove('focused', 'blurred'));
+            },
+
+            onMount(instance) {
+                const menuBox = instance.popper.querySelector('.popover-scroll-box');
+                menuBox.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('menu-option')) {
+                        instance.reference.textContent = e.target.textContent;
+                        instance.hide();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
